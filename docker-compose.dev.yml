@@ -1,0 +1,73 @@
+version: '3.6'
+services:
+  db:
+    build:
+      context: .docker/mysql
+      args:
+        MYSQL_USER: ${MYSQL_USER}
+        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        MYSQL_PORT: ${MYSQL_PORT}
+    ports:
+      - 33060:3306 # Reserve port to localhost for database connexion on phpstorm
+    volumes:
+      - mysql-db:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    labels:
+      traefik.enable: true
+      traefik.http.services.pma.loadbalancer.server.port: 80
+      traefik.http.routers.pma.rule: "Host(`pma.localhost.tv`)"
+      traefik.http.routers.pma.entrypoints: web
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - 80
+    volumes:
+      - ./.docker/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.user.inc.php
+      - ./.docker/phpmyadmin/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    depends_on:
+      - db
+    links:
+      - db
+    networks:
+      sfdemo:
+        aliases:
+          - pma.localhost.tv
+
+  maildev:
+    image: djfarrelly/maildev
+    labels:
+      traefik.enable: true
+      traefik.http.services.maildev.loadbalancer.server.port: 80
+      traefik.http.routers.maildev.rule: "Host(`maildev.localhost.tv`)"
+    ports:
+      - 80
+      - 25
+    networks:
+      sfdemo:
+        aliases:
+          - maildev.localhost.tv
+
+  traefik:
+    image: traefik:v2.3
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sfdemo
+
+volumes:
+  mysql-db: #Keep database on local docker storage
