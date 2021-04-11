@@ -4,7 +4,7 @@ services:
     image: nginx
     labels:
       traefik.enable: true
-      traefik.docker.network: sfdemo
+      traefik.docker.network: sfdemopg
       traefik.http.services.www.loadbalancer.server.port: 80
       traefik.http.routers.www.rule: "Host(`demo.localhost.tv`)"
       traefik.http.routers.www.entrypoints: web
@@ -19,34 +19,33 @@ services:
     depends_on:
       - php
     networks:
-      sfdemo:
+      sfdemopg:
         aliases:
           - demo.localhost.tv
 
   db:
-    image: mysql:8
-    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    image: postgres:13
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      TZ: ${TIMEZONE:-Europe/Paris}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DATABASE}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     ports:
-      - 3306
+      - 5432
     networks:
-      - sfdemo
+      - sfdemopg
 
   php:
     build: .docker/php
     restart: always
     environment:
-      MYSQL_HOST: db
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_PORT: ${MYSQL_PORT}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      PG_HOST: ${PG_HOST}
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      PG_PORT: ${PG_PORT}
+      PG_DATABASE: ${PG_DATABASE}
     volumes:
       - ./project:/var/www
       - ${COMPOSER_HOME:-/tmp/composer}:/home/www-data/.composer # Share composer cache
@@ -54,8 +53,8 @@ services:
       - db
     user: "${VOLUME_USER_ID:-www-data}:www-data"
     networks:
-      - sfdemo
+      - sfdemopg
 
 networks:
-  sfdemo:
+  sfdemopg:
     driver: bridge
